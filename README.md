@@ -76,4 +76,4 @@ Aktivní soubory: `index.html`, `dashboard.css`, `dashboard.js`, `simulation.js`
 
 ## Matyáš Rada + Filip Krejčí
 Filip Krejčí poskytnul data a nápady.
-Matyáš Rada využil Chat GPT na měsíc zadarmo.
+Matyáš Rada se zabýval funkčností aplikace / webu.
