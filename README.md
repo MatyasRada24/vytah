@@ -74,3 +74,5 @@ V každém kroku se počítá kladná práce proti nevyvážení a tření z re�
 14 testů ověřuje přesnou shodu s HTML, zákaz přibírání během rozvozu, různou kapacitu a fyziku, zpomalené přestupy, determinismus, kapacitu, zachování počtu osob, absenci znalosti budoucnosti, využití otevřených dveří, průběžné metriky, hranici horizontu, časový limit, prázdná data, validaci, společný interval energie, offline načtení skriptů a nové položky v exportu. V prohlížeči byly ověřeny konečné hodnoty, oba rozsahy, přepnutí řízení, přehrávání, pauza a reset; konzole bez chyb.
 
 Aktivní soubory: `index.html`, `dashboard.css`, `dashboard.js`, `simulation.js`, `tick-engine.js`, `scenario.json`, `scenario-data.js`. `reference/` obsahuje původní HTML, generátor fyziky a nezávislý testovací vzor. `preview.cjs` slouží pro volitelný server. Staré soubory `app.js`, `styles.css`, `elevator-engine.js`, `sound-effects.js`, `previous-version/` a vývojoví kandidáti v `experiments/` nejsou načítány aplikací.
+
+## Matyáš Rada + Filip Krejčí
