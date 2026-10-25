@@ -5,8 +5,7 @@ Lokální česká aplikace porovnávající dvě nezávislé kopie stejného vý
 ## Spuštění
 
 Otevřete `index.html` nebo `Spustit_Aplikaci.bat`. Aplikace funguje offline, bez instalace. Výchozí data ze souboru `zadani-bezny-den-ve-skole-B746-8C6D.json` jsou v `scenario.json` a vložena v `scenario-data.js`. Další soubor načte tlačítko **Nahrát vlastní JSON**; data zůstávají v prohlížeči.
-
-Volitelný náhled: `node preview.cjs 4187`, potom http://127.0.0.1:4187. Ukončení Ctrl+C.
+Funguje i přes GitHub pages.
 
 ## Základní výtah z HTML
 
