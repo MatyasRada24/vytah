@@ -76,3 +76,5 @@ V každém kroku se počítá kladná práce proti nevyvážení a tření z re�
 Aktivní soubory: `index.html`, `dashboard.css`, `dashboard.js`, `simulation.js`, `tick-engine.js`, `scenario.json`, `scenario-data.js`. `reference/` obsahuje původní HTML, generátor fyziky a nezávislý testovací vzor. `preview.cjs` slouží pro volitelný server. Staré soubory `app.js`, `styles.css`, `elevator-engine.js`, `sound-effects.js`, `previous-version/` a vývojoví kandidáti v `experiments/` nejsou načítány aplikací.
 
 ## Matyáš Rada + Filip Krejčí
+Filip Krejčí poskytnul data a nápady.
+Matyáš Rada využil Chat GPT na měsíc zadarmo.
