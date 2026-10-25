@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulátor výtahu – základní verze</title>
+<style>
+  :root {
+    --ink: #2d3748; --mute: #718096; --line: #cbd5e0; --bg: #f4f6f9; --card: #fff;
+    --accent: #2b6cb0; --accent-d: #1e4e82; --warn: #c27c0e; --bad: #c53030; --ok: #2f9e44;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { background: var(--accent); color: #fff; padding: 14px 20px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 2px 0 0; opacity: .9; font-size: 14px; }
+  nav { display: flex; gap: 4px; padding: 10px 20px 0; max-width: 1100px; margin: 0 auto; }
+  nav button { border: 1px solid var(--line); border-bottom: 0; background: #e8edf3; color: var(--ink); padding: 8px 18px; border-radius: 8px 8px 0 0; font: inherit; cursor: pointer; }
+  nav button.on { background: var(--card); font-weight: 600; color: var(--accent-d); }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 20px 40px; }
+  .tab { display: none; background: var(--card); border: 1px solid var(--line); border-radius: 0 8px 8px 8px; padding: 18px 22px; }
+  .tab.on { display: block; }
+  h2 { font-size: 18px; margin: 22px 0 8px; border-bottom: 2px solid var(--grid, #edf2f7); padding-bottom: 4px; }
+  h2:first-child { margin-top: 0; }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  code, pre { font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 13px; }
+  code { background: #edf2f7; padding: 1px 5px; border-radius: 4px; }
+  pre { background: #1f2937; color: #e5e7eb; padding: 12px 14px; border-radius: 8px; overflow: auto; line-height: 1.45; }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+  th { background: #edf2f7; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  button, .btn { font: inherit; padding: 6px 14px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; color: var(--ink); }
+  button:hover { background: #edf2f7; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-d); }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .drop.over { border-color: var(--accent); background: #ebf4ff; }
+  textarea { width: 100%; font: 13px ui-monospace, Consolas, monospace; border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin-top: 8px; }
+  .msg { margin: 10px 0 0; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
+  .msg.err { background: #fff5f5; border: 1px solid #feb2b2; color: #9b2c2c; }
+  .msg.warn { background: #fffaf0; border: 1px solid #fbd38d; color: #8a5a00; }
+  .msg ul { margin: 4px 0 0; padding-left: 20px; }
+  .info { margin-top: 12px; color: var(--mute); font-size: 14px; }
+  .info b { color: var(--ink); }
+  .grid2 { display: grid; grid-template-columns: minmax(300px, 440px) 1fr; gap: 22px; margin-top: 16px; align-items: start; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+  canvas { width: 100%; display: block; background: #fbfcfe; border: 1px solid var(--line); border-radius: 8px; }
+  .ctrl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .ctrl input[type=range] { flex: 1; min-width: 120px; }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 100px; }
+  .metrics td:first-child { color: var(--mute); }
+  .metrics td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .log { max-height: 160px; overflow: auto; background: #f7fafc; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: 12.5px ui-monospace, Consolas, monospace; white-space: pre-wrap; }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .people-wrap { max-height: 320px; overflow: auto; }
+  .manual { max-width: 860px; }
+  .manual p, .manual li { margin: 6px 0; }
+  .manual .note { background: #ebf8ff; border-left: 4px solid var(--accent); padding: 8px 12px; border-radius: 4px; margin: 10px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulátor výtahu – základní verze</h1>
+  <p>Načti zadání (JSON), simulace převeze lidi obyčejným panelákovým výtahem. Tvým úkolem je vymyslet algoritmus lepší.</p>
+</header>
+
+<nav>
+  <button type="button" data-tab="sim" class="on">Simulace</button>
+  <button type="button" data-tab="manual">Manuál</button>
+</nav>
+
+<main>
+
+<!-- ===================================================================== -->
+<section class="tab on" id="tab-sim">
+  <h2>1 · Zadání</h2>
+  <div id="drop" class="drop">
+    <span>Přetáhni sem soubor zadání (<code>.json</code>)</span>
+    <button type="button" id="pickBtn" class="primary">Vybrat soubor…</button>
+    <input type="file" id="file" accept=".json,application/json" hidden>
+    <button type="button" id="pasteBtn">Vložit text</button>
+    <button type="button" id="demoBtn">Ukázkové zadání</button>
+  </div>
+  <div id="pasteBox" hidden>
+    <textarea id="pasteText" rows="5" spellcheck="false" placeholder="Sem vlož obsah souboru se zadáním (JSON)"></textarea>
+    <button type="button" id="pasteApply">Použít</button>
+  </div>
+  <div id="loadMsg"></div>
+  <div id="scnInfo" class="info" hidden></div>
+
+  <div id="result" hidden>
+    <h2>2 · Simulace</h2>
+    <div class="grid2">
+      <div>
+        <canvas id="cv"></canvas>
+        <div class="ctrl">
+          <button type="button" id="playBtn" class="primary" style="min-width:90px">▶ Spustit</button>
+          <button type="button" id="restartBtn" title="Přehrát od začátku">⏮</button>
+          <span class="clock" id="clock">0:00</span>
+          <label>Rychlost
+            <select id="speed">
+              <option value="1">1×</option><option value="2">2×</option><option value="5" selected>5×</option>
+              <option value="10">10×</option><option value="30">30×</option><option value="100">100×</option>
+            </select>
+          </label>
+        </div>
+        <div class="ctrl"><input type="range" id="scrub" min="0" max="1000" value="0"></div>
+        <div class="info" id="liveInfo"></div>
+      </div>
+      <div>
+        <h3 style="margin-top:0">Výsledek</h3>
+        <div id="runMsg"></div>
+        <table class="metrics" id="metrics"></table>
+        <details><summary>Výpisy z <code>console.log</code></summary><div class="log" id="log">(nic)</div></details>
+        <details><summary>Cestující jednotlivě</summary><div class="people-wrap"><table id="peopleTbl"></table></div></details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================================== -->
+<section class="tab" id="tab-manual"><div class="manual" id="manualBody">
+
+<h2>Co je tohle za soubor</h2>
+<p>Stránka načte <b>zadání</b> (soubor <code>.json</code>), simuluje jeden výtah v budově s lidmi, kteří v daných časech přicházejí do pater a chtějí do jiného patra, a spočítá, jak výtah obsloužil všechny lidi. Vše běží přímo v prohlížeči, žádný server není potřeba.</p>
+<p>V souboru je napsán <b>základní („panelákový“) výtah</b>. Chová se jako běžný výtah v paneláku:</p>
+<ol>
+  <li>Stojí v patře, dokud ho někdo nezavolá. Pak jede k tomu, kdo čeká nejdéle.</li>
+  <li>Tam do prázdné kabiny nastoupí všichni, kdo v tom patře čekají (dokud je místo).</li>
+  <li>Výtah je rozveze po patrech v tom pořadí, v jakém nastoupili. <b>Cestou nikde nezastavuje</b> a nikoho dalšího nebere.</li>
+  <li>Až je kabina prázdná, jede k tomu, kdo čeká nejdéle, a celé se to opakuje.</li>
+</ol>
+<div class="note"><b>Tvůj úkol:</b> upravit algoritmus tak, aby lidé čekali a jeli co nejkratší dobu (viz kapitola <a href="#" data-goto="metriky">Hodnocení</a>). Algoritmus je v souboru <code>vytah.html</code> v bloku <code>&lt;script id="algoritmus"&gt;</code> hned na začátku skriptů. Měň jen ten blok. Po úpravě ulož soubor a obnov stránku (F5), zadání se si stránka pamatuje a načte samo.</div>
+
+<h2>Jak psát algoritmus</h2>
+<p>Algoritmus tvoří funkce, které simulace volá. Jsou to obyčejné funkce v JavaScriptu:</p>
+<table>
+  <tr><th>Funkce</th><th>Povinná?</th><th>Kdy se volá</th><th>Co vrací</th></tr>
+  <tr><td><code>rozhodni(stav)</code></td><td>ano</td><td>pořád dokola, každých 0,05 s simulovaného času</td><td>číslo patra, kam má výtah jet, nebo <code>null</code></td></tr>
+  <tr><td><code>nastup(stav, osoba)</code></td><td>ne</td><td>při otevřených dveřích, pro každého čekajícího v tomto patře</td><td><code>true</code> = smí nastoupit, <code>false</code> = nesmí</td></tr>
+  <tr><td><code>zacatek(stav)</code></td><td>ne</td><td>jednou před začátkem každé simulace</td><td>nic. Hodí se k vynulování proměnných, které si algoritmus pamatuje</td></tr>
+</table>
+
+<h3><code>rozhodni(stav)</code> – návratové hodnoty</h3>
+<ul>
+  <li><b>celé číslo 0 až (počet pater − 1)</b>: tam chci jet. Platí stejné číslování jako v zadání (0 = přízemí).</li>
+  <li><b><code>null</code></b>: nemám názor. Stojící výtah zůstane stát. Jedoucí výtah pokračuje k dosavadnímu cíli.</li>
+  <li>Cokoli jiného (desetinné číslo, text, patro mimo budovu…) zastaví simulaci s chybou.</li>
+</ul>
+<p>Pravidla pohybu:</p>
+<ul>
+  <li><b>Stojící výtah</b> s cílem v jiném patře se rozjede. Pokud vrátíš <b>patro, v němž právě stojí</b> a někdo tam vystupuje nebo čeká, otevřou se dveře. Jinak se nestane nic.</li>
+  <li><b>Jedoucí výtah</b> může cíl změnit, ale <b>nemůže se uprostřed jízdy otočit</b> a nemůže zastavit na místě. Fyzika (zrychlení) mu určuje nejbližší patro, kde se ještě stihne zastavit (<code>stav.nejblizsiZastaveni</code>). Zadáš-li cíl <i>dřív</i> než toto patro, zastaví se v něm. Zadáš-li cíl za ním, pojede dál.</li>
+  <li>Kdykoli výtah dorazí do cílového patra, <b>otevře dveře</b> (viz „Co se děje v patře“) a pak čeká na další rozhodnutí.</li>
+</ul>
+
+<h3><code>nastup(stav, osoba)</code> – kdo smí nastoupit</h3>
+<p>Dveře jsou otevřené a v patře čekají lidé. Simulace prochází čekající v pořadí, v jakém přišli, a pro každého se zeptá <code>nastup()</code>. Kdo dostane <code>true</code>, nastoupí. Bez této funkce nastoupí každý, dokud je v kabině místo. Argument <code>osoba</code> je objekt čekající osoby (viz níže). Kapacitu kabiny hlídá simulace sama.</p>
+
+<h3>Objekt <code>stav</code> (jen ke čtení)</h3>
+<table>
+  <tr><th>Vlastnost</th><th>Typ</th><th>Význam</th></tr>
+  <tr><td><code>cas</code></td><td>číslo, s</td><td>simulovaný čas od začátku</td></tr>
+  <tr><td><code>patro</code></td><td>celé číslo</td><td>patro, kterému je kabina nejblíž (zaokrouhlená poloha)</td></tr>
+  <tr><td><code>poloha</code></td><td>číslo, m</td><td>přesná výška kabiny nad přízemím</td></tr>
+  <tr><td><code>rychlost</code></td><td>číslo, m/s</td><td>kladná = nahoru, záporná = dolů</td></tr>
+  <tr><td><code>smer</code></td><td>−1 / 0 / 1</td><td>směr jízdy; 0 když stojí</td></tr>
+  <tr><td><code>posledniSmer</code></td><td>−1 / 1</td><td>směr poslední jízdy (i když zrovna stojí)</td></tr>
+  <tr><td><code>stoji</code></td><td>boolean</td><td><code>true</code> = nejede (čeká, nebo jsou otevřené dveře)</td></tr>
+  <tr><td><code>cil</code></td><td>celé číslo / <code>null</code></td><td>kam právě jede; <code>null</code> když stojí</td></tr>
+  <tr><td><code>nejblizsiZastaveni</code></td><td>celé číslo</td><td>nejbližší patro, kde by výtah mohl zastavit (když stojí, tak aktuální patro)</td></tr>
+  <tr><td><code>kapacita</code></td><td>celé číslo</td><td>nejvyšší počet lidí v kabině</td></tr>
+  <tr><td><code>volno</code></td><td>celé číslo</td><td>kolik lidí se ještě vejde</td></tr>
+  <tr><td><code>pocetPater</code></td><td>celé číslo</td><td>počet pater (patra jsou 0 až <code>pocetPater − 1</code>)</td></tr>
+  <tr><td><code>vyskaPatra</code></td><td>číslo, m</td><td>vzdálenost mezi patry</td></tr>
+  <tr><td><code>vKabine</code></td><td>pole</td><td>lidé v kabině, v pořadí nástupu. Prvky viz „Cestující v kabině“</td></tr>
+  <tr><td><code>cekajici</code></td><td>pole</td><td>lidé, kteří čekají v patrech, v pořadí příchodu (nejdéle čekající první). Prvky viz „Čekající“</td></tr>
+</table>
+
+<h3>Čekající (<code>stav.cekajici[i]</code>, <code>osoba</code> v <code>nastup</code>)</h3>
+<table>
+  <tr><th>Vlastnost</th><th>Význam</th></tr>
+  <tr><td><code>id</code></td><td>pořadové číslo osoby (1, 2, 3… podle času příchodu)</td></tr>
+  <tr><td><code>patro</code></td><td>kde čeká</td></tr>
+  <tr><td><code>smer</code></td><td>kterým směrem chce jet: <code>1</code> nahoru, <code>-1</code> dolů (jako šipka u tlačítka)</td></tr>
+  <tr><td><code>od</code></td><td>čas příchodu (s)</td></tr>
+  <tr><td><code>cil</code></td><td>kam chce jet. <b>Je tu jen tehdy, když je v zadání <code>info.destVisible = true</code>.</b> Jinak vlastnost neexistuje (<code>undefined</code>) a výtah zná jen směr, jako v běžném paneláku</td></tr>
+</table>
+
+<h3>Cestující v kabině (<code>stav.vKabine[i]</code>)</h3>
+<table>
+  <tr><th>Vlastnost</th><th>Význam</th></tr>
+  <tr><td><code>id</code></td><td>pořadové číslo osoby</td></tr>
+  <tr><td><code>odkud</code></td><td>patro, kde nastoupila</td></tr>
+  <tr><td><code>cil</code></td><td>patro, kam jede (v kabině se zmáčkne tlačítko, takže je známý vždy)</td></tr>
+  <tr><td><code>od</code></td><td>čas příchodu do čekárny (s)</td></tr>
+  <tr><td><code>nastoupil</code></td><td>čas nástupu (s)</td></tr>
+</table>
+
+<h3>Pravidla hry</h3>
+<ul>
+  <li>Objekty ve <code>stav</code> jsou zamčené. Zápis do nich nic nezmění, nebo vyhodí chybu.</li>
+  <li>Proměnné deklarované mimo funkce (např. <code>var smer = 1;</code>) si algoritmus <b>pamatuje mezi voláními</b>. Nezapomeň je vynulovat v <code>zacatek()</code>, jinak se do další simulace přenese stav z předchozí.</li>
+  <li><code>console.log(…)</code> funguje, výpisy se objeví pod výsledkem (nejvýše 300 řádků, před každým je simulovaný čas).</li>
+  <li>Algoritmus <b>nesmí znát budoucnost</b>. Má jen to, co je ve <code>stav</code>. Nečti proto osoby přímo ze zadání.</li>
+  <li>Výpočet jednoho rozhodnutí má být rychlý, volá se zhruba 20× za sekundu simulovaného času. Nekonečná smyčka stránku zasekne.</li>
+</ul>
+
+<h2>Co se děje v patře</h2>
+<p>Když výtah dorazí do patra, proběhne vždy tento cyklus (časy jsou ze zadání):</p>
+<ol>
+  <li><b>Otevření dveří</b> – trvá <code>lift.doorOpen</code> s.</li>
+  <li><b>Výstup</b> – vystoupí všichni, kdo tu mají cíl, jeden po druhém. Každý trvá <code>boarding.out × slow</code> s.</li>
+  <li><b>Nástup</b> – pokud je v kabině místo, nastupují čekající z tohoto patra v pořadí příchodu, pokud je <code>nastup()</code> pustí. Každý trvá <code>boarding.in × slow</code> s. Kdo přijde do patra, zatímco jsou dveře otevřené, může ještě nastoupit.</li>
+  <li><b>Zavření dveří</b> – trvá <code>lift.doorClose</code> s. Během zavírání už nikdo nenastoupí.</li>
+</ol>
+<p>Po zavření se výtah znovu ptá <code>rozhodni()</code>.</p>
+
+<h3>Pohyb</h3>
+<p>Výtah se rozjíždí a brzdí stálým zrychlením <code>lift.acceleration</code>, nejvyšší rychlost je <code>lift.speed</code>. Brzdí tak, aby zastavil přesně v cílovém patře. Krátká jízda proto nedosáhne nejvyšší rychlosti. Fyzika je pro všechny stejná, ovlivnit se dá jen rozhodování.</p>
+
+<h2 id="metriky">Hodnocení</h2>
+<p>Po simulaci uvidíš tyto hodnoty. Simulace končí, když jsou všichni rozvezeni, nebo když uplyne <code>evaluation.maxTime</code>.</p>
+<table>
+  <tr><th>Veličina</th><th>Význam</th></tr>
+  <tr><td>Rozvezeno</td><td>kolik lidí dojelo do cíle z celkového počtu</td></tr>
+  <tr><td>Hotovo v čase</td><td>čas, kdy vystoupil poslední člověk (jen když byli rozvezeni všichni)</td></tr>
+  <tr><td>Průměrné čekání</td><td>průměr (nástup − příchod) přes všechny, kdo nastoupili</td></tr>
+  <tr><td>Průměrná jízda</td><td>průměr (výstup − nástup)</td></tr>
+  <tr><td>Průměrně celkem</td><td>průměr (výstup − příchod); <b>to je hlavní číslo, které chceš snížit</b></td></tr>
+  <tr><td>Nejdelší čekání / celkem</td><td>nejhorší případ; ukazuje, jestli někoho „nehladovíš“</td></tr>
+  <tr><td>Zastavení, ujeto</td><td>kolikrát výtah otevřel dveře a kolik metrů najel</td></tr>
+  <tr><td>Rozvezeno v hodnoceném úseku</td><td>kolik lidí dojelo do <code>evaluation.horizon</code> sekund</td></tr>
+</table>
+<p>Učitel může zadat vlastní pravidla hodnocení. Porovnávejte vždy na <b>stejném zadání</b>: ověříš to podle <b>otisku</b> zadání, který se zobrazuje pod načteným souborem (např. <code>3F2A-91C4</code>). Stejný otisk = stejné zadání.</p>
+
+<h2>Zadání: formát JSON</h2>
+<p>Zadání je textový soubor ve formátu JSON (kódování UTF-8). Je to jeden objekt s následujícími klíči. Co není uvedeno, doplní se výchozí hodnotou. Sloupec <i>Povinné</i> říká, bez čeho se zadání nenačte.</p>
+
+<h3>Nejvyšší úroveň</h3>
+<table>
+  <tr><th>Klíč</th><th>Typ</th><th>Povinné</th><th>Význam</th></tr>
+  <tr><td><code>format</code></td><td>text</td><td>ano</td><td>vždy přesně <code>"vytah-zadani"</code>. Podle toho se pozná, že jde o zadání výtahu</td></tr>
+  <tr><td><code>version</code></td><td>číslo</td><td>ano</td><td>verze formátu souboru, nyní <code>1</code></td></tr>
+  <tr><td><code>engineVersion</code></td><td>číslo</td><td>ne</td><td>verze fyziky simulátoru, pro kterou je zadání určeno (nyní <code>1</code>). Když se liší, zobrazí se upozornění, že výsledky mohou být jiné</td></tr>
+  <tr><td><code>name</code></td><td>text</td><td>ne</td><td>název zadání (zobrazí se nahoře)</td></tr>
+  <tr><td><code>description</code></td><td>text</td><td>ne</td><td>popis pro žáka (zobrazí se nahoře)</td></tr>
+  <tr><td><code>created</code></td><td>text</td><td>ne</td><td>datum vytvoření, jen informativně</td></tr>
+  <tr><td><code>lift</code></td><td>objekt</td><td>ne</td><td>výtah a budova, viz níže</td></tr>
+  <tr><td><code>boarding</code></td><td>objekt</td><td>ne</td><td>rychlost nástupu a výstupu, viz níže</td></tr>
+  <tr><td><code>info</code></td><td>objekt</td><td>ne</td><td>co smí algoritmus vědět, viz níže</td></tr>
+  <tr><td><code>evaluation</code></td><td>objekt</td><td>ne</td><td>hodnocení a limit simulace, viz níže</td></tr>
+  <tr><td><code>people</code></td><td>pole</td><td>ano</td><td>seznam lidí, nejméně 1 a nejvýše 5000, viz níže</td></tr>
+  <tr><td><code>hash</code></td><td>text</td><td>ne</td><td>otisk obsahu zadání ve tvaru <code>XXXX-XXXX</code>, který vypočítal generátor. Stránka ho porovná s vlastním výpočtem. Když nesouhlasí, soubor byl po vytvoření upraven (jen upozornění, zadání se načte)</td></tr>
+  <tr><td><code>locked</code>, <code>generator</code></td><td>pole, objekt</td><td>ne</td><td>údaje pro učitelský generátor (které parametry smí žák měnit, jak byli lidé vygenerováni). Tato stránka je ignoruje</td></tr>
+</table>
+
+<h3>Objekty s čísly (výchozí hodnoty a povolené rozsahy)</h3>
+<p>Hodnota mimo rozsah zadání odmítne. Tabulka se tvoří přímo z kódu, takže je vždy aktuální.</p>
+<table id="rangeTbl"></table>
+
+<h3><code>info</code></h3>
+<table>
+  <tr><th>Klíč</th><th>Typ</th><th>Výchozí</th><th>Význam</th></tr>
+  <tr><td><code>destVisible</code></td><td>boolean</td><td><code>false</code></td><td>Smí algoritmus vidět, kam chtějí čekající jet? <code>false</code> = zná jen směr (šipka nahoru/dolů), tak jako v běžném paneláku. <code>true</code> = čekající mají vlastnost <code>cil</code> (jako u moderních výtahů, kde zadáš cíl už na chodbě)</td></tr>
+</table>
+
+<h3><code>people</code> – seznam lidí</h3>
+<p>Pole objektů, jeden objekt = jeden člověk, který jednou přijde a jednou jede.</p>
+<table>
+  <tr><th>Klíč</th><th>Typ</th><th>Povinné</th><th>Význam</th></tr>
+  <tr><td><code>id</code></td><td>celé číslo</td><td>ne</td><td>pořadové číslo osoby (1, 2, 3… podle času příchodu). Generátor ho do souboru zapisuje, aby se dalo na lidi odkazovat. <b>Při načtení se ignoruje</b>: stránka lidi seřadí podle <code>t</code> a očísluje je znovu, takže <code>id</code> v souboru nemusí být ani správně. V algoritmu je pak dostupné jako <code>id</code> u čekajících a cestujících</td></tr>
+  <tr><td><code>t</code></td><td>číslo ≥ 0</td><td>ano</td><td>čas příchodu v sekundách od začátku simulace (zavolá výtah)</td></tr>
+  <tr><td><code>from</code></td><td>celé číslo</td><td>ano</td><td>patro, kde čeká (0 až <code>floors − 1</code>)</td></tr>
+  <tr><td><code>to</code></td><td>celé číslo</td><td>ano</td><td>patro, kam chce jet; musí být jiné než <code>from</code></td></tr>
+  <tr><td><code>slow</code></td><td>číslo 0,25 až 10</td><td>ne (výchozí 1)</td><td>násobek zdržení při nástupu a výstupu. <code>2</code> = pomalejší člověk (nástup i výstup trvá dvakrát déle), <code>0.5</code> = rychlejší</td></tr>
+</table>
+<p>Pořadí lidí v poli nehraje roli. Po načtení se seřadí podle <code>t</code> (při stejném <code>t</code> podle původního pořadí) a očíslují 1, 2, 3… Jejich počet nemusí odpovídat kapacitě výtahu. Jiné klíče u osoby se ignorují.</p>
+
+<h3>Příklad (nejmenší rozumné zadání)</h3>
+<pre><code id="exampleJson"></code></pre>
+<p><button type="button" id="dlDemo">Stáhnout větší ukázkové zadání (.json)</button></p>
+
+<h3>Co dělat, když se zadání nenačte</h3>
+<p>Stránka vypíše až 12 důvodů, vždy s číslem osoby v seznamu <code>people</code> (počítáno od 1). Nejčastější chyby:</p>
+<ul>
+  <li>chybí <code>"format": "vytah-zadani"</code> nebo <code>"version": 1</code>,</li>
+  <li>osoba jede do patra, které neexistuje (<code>to</code> ≥ <code>floors</code>), nebo ze stejného patra do téhož (<code>from == to</code>),</li>
+  <li>desetinné číslo tam, kde má být celé (<code>floors</code>, <code>capacity</code>, <code>startFloor</code>, <code>from</code>, <code>to</code>),</li>
+  <li>hodnota mimo povolený rozsah v tabulce výše,</li>
+  <li>rozbitý JSON (chybějící čárka nebo uvozovka). Pomůže ho vložit do jakéhokoli kontrolora JSON.</li>
+</ul>
+
+</div></section>
+
+</main>
+
+<!-- ===================================================================== -->
+<!--  ALGORITMUS VÝTAHU  –  TADY UPRAVUJ                                   -->
+<!-- ===================================================================== -->
+<script id="algoritmus">
+/* ZÁKLADNÍ („PANELÁKOVÝ“) VÝTAH
+ *
+ * Člověk přijde, zavolá, výtah pro něj přijede, člověk nastoupí, zvolí patro a výtah ho doveze.
+ *  - Je-li kabina prázdná, jede pro toho, kdo čeká nejdéle.
+ *  - Nastoupí všichni, kdo čekají v tom patře, a vozí se v pořadí, v jakém nastoupili.
+ *  - Cestou nikde nezastavuje a nikoho dalšího nebere.
+ *
+ * Je to nejhorší rozumný způsob. Vymysli lepší. Návod je na kartě „Manuál“.
+ */
+
+// Volá se jednou před každou simulací. Sem patří vynulování vlastních proměnných.
+function zacatek(stav) {
+}
+
+// Volá se pořád dokola. Vrať číslo patra, kam jet, nebo null (stát / pokračovat).
+function rozhodni(stav) {
+  if (stav.vKabine.length > 0) {
+    return stav.vKabine[0].cil;            // vezmi toho, kdo nastoupil první
+  }
+  if (stav.cekajici.length > 0) {
+    return stav.cekajici[0].patro;         // jeď pro nejdéle čekajícího
+  }
+  return null;                              // nikdo nic nechce
+}
+
+// Smí tahle osoba nastoupit? Nastupuje se jen do prázdné kabiny
+// (nebo když všichni uvnitř nastoupili v tomto patře).
+function nastup(stav, osoba) {
+  return stav.vKabine.every(function (o) { return o.odkud === stav.patro; });
+}
+</script>
+
+<!-- ===================================================================== -->
+<!--  SIMULACE A ROZHRANÍ  –  tohle neupravuj                              -->
+<!-- ===================================================================== -->
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   *  FORMÁT ZADÁNÍ
+   * ------------------------------------------------------------------ */
+  var FORMAT = 'vytah-zadani', VERSION = 1, ENGINE_VERSION = 1;
+
+  var DEFAULTS = {
+    lift: { floors: 5, floorHeight: 3, speed: 2, acceleration: 1, capacity: 8, doorOpen: 1.5, doorClose: 1.5, startFloor: 0 },
+    boarding: { in: 1, out: 1 },
+    info: { destVisible: false },
+    evaluation: { horizon: 600, maxTime: 7200 },
+  };
+
+  var RANGES = [
+    { path: ['lift', 'floors'], label: 'Počet pater', unit: '', min: 2, max: 20, int: true, desc: 'Patra se číslují 0 (přízemí) až floors − 1.' },
+    { path: ['lift', 'floorHeight'], label: 'Výška mezi patry', unit: 'm', min: 2, max: 6, desc: 'Vzdálenost sousedních pater.' },
+    { path: ['lift', 'startFloor'], label: 'Výtah začíná v patře', unit: '', min: 0, max: 19, int: true, desc: 'Musí existovat (menší než floors).' },
+    { path: ['lift', 'speed'], label: 'Největší rychlost', unit: 'm/s', min: 0.5, max: 6, desc: 'Cestovní rychlost kabiny.' },
+    { path: ['lift', 'acceleration'], label: 'Zrychlení', unit: 'm/s²', min: 0.3, max: 3, desc: 'Při rozjezdu i brzdění.' },
+    { path: ['lift', 'capacity'], label: 'Kapacita kabiny', unit: 'osob', min: 1, max: 20, int: true, desc: 'Nejvyšší počet lidí v kabině.' },
+    { path: ['lift', 'doorOpen'], label: 'Otevření dveří', unit: 's', min: 0.5, max: 5, desc: 'Doba otevírání dveří v patře.' },
+    { path: ['lift', 'doorClose'], label: 'Zavření dveří', unit: 's', min: 0.5, max: 5, desc: 'Doba zavírání dveří.' },
+    { path: ['boarding', 'in'], label: 'Nástup jednoho člověka', unit: 's', min: 0.3, max: 4, desc: 'Násobí se hodnotou slow dané osoby.' },
+    { path: ['boarding', 'out'], label: 'Výstup jednoho člověka', unit: 's', min: 0.3, max: 4, desc: 'Násobí se hodnotou slow dané osoby.' },
+    { path: ['evaluation', 'horizon'], label: 'Hodnocený úsek', unit: 's', min: 0, max: Infinity, exclusiveMin: true, desc: 'Počítá se, kolik lidí dojelo do tohoto času.' },
+    { path: ['evaluation', 'maxTime'], label: 'Nejdelší doba simulace', unit: 's', min: 60, max: Infinity, desc: 'Po tomto čase se simulace zastaví, i když někdo ještě nedojel.' },
+  ];
+
+  /* otisk zadání – stejný postup jako v generátoru */
+  function stable(x) {
+    if (Array.isArray(x)) return '[' + x.map(stable).join(',') + ']';
+    if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map(function (k) { return JSON.stringify(k) + ':' + stable(x[k]); }).join(',') + '}';
+    return JSON.stringify(x);
+  }
+  function cyrb53(str) {
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57, ch;
+    for (var i = 0; i < str.length; i++) {
+      ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  }
+  function hashOf(s) {
+    var c = {
+      lift: s.lift, boarding: s.boarding, info: s.info, evaluation: s.evaluation, engineVersion: ENGINE_VERSION,
+      people: s.people.map(function (p) { return { id: p.id, t: p.t, from: p.from, to: p.to, slow: p.slow || 1 }; }),
+    };
+    var h = cyrb53(stable(c)).toString(16).toUpperCase().padStart(14, '0').slice(-8);
+    return h.slice(0, 4) + '-' + h.slice(4);
+  }
+
+  function isNum(x) { return typeof x === 'number' && isFinite(x); }
+  function getPath(o, path) { return path.reduce(function (a, k) { return a[k]; }, o); }
+
+  function validate(raw) {
+    var errors = [], warnings = [];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, errors: ['Soubor neobsahuje objekt JSON.'], warnings: warnings };
+    if (raw.format !== FORMAT) errors.push('Soubor není zadání výtahu (chybí „format“: „' + FORMAT + '“).');
+    if (raw.version !== VERSION) errors.push('Nepodporovaná verze formátu: ' + raw.version + ' (umím ' + VERSION + ').');
+    if (errors.length) return { ok: false, errors: errors, warnings: warnings };
+
+    var s = {
+      engineVersion: raw.engineVersion || ENGINE_VERSION,
+      name: String(raw.name || 'Zadání bez názvu'), description: String(raw.description || ''),
+      lift: Object.assign({}, DEFAULTS.lift, raw.lift), boarding: Object.assign({}, DEFAULTS.boarding, raw.boarding),
+      info: Object.assign({}, DEFAULTS.info, raw.info), evaluation: Object.assign({}, DEFAULTS.evaluation, raw.evaluation),
+      hash: raw.hash || null,
+    };
+    s.info.destVisible = !!s.info.destVisible;
+
+    RANGES.forEach(function (r) {
+      var v = getPath(s, r.path);
+      var bad = !isNum(v) || v < r.min || v > r.max || (r.exclusiveMin && v <= r.min);
+      if (bad) errors.push(r.label + ' (' + r.path.join('.') + '): hodnota ' + v + ' je mimo povolený rozsah.');
+    });
+    if (!Number.isInteger(s.lift.floors) || !Number.isInteger(s.lift.capacity) || !Number.isInteger(s.lift.startFloor)) errors.push('Počet pater, kapacita a počáteční patro musí být celá čísla.');
+    if (s.lift.startFloor >= s.lift.floors) errors.push('Počáteční patro ' + s.lift.startFloor + ' neexistuje (pater je ' + s.lift.floors + ').');
+
+    if (!Array.isArray(raw.people) || raw.people.length === 0) errors.push('Zadání neobsahuje žádné lidi („people“).');
+    else if (raw.people.length > 5000) errors.push('Lidí je příliš mnoho (nejvýše 5000).');
+    else {
+      s.people = [];
+      raw.people.forEach(function (p, i) {
+        var n = i + 1, F = s.lift.floors;
+        if (!p || !isNum(p.t) || p.t < 0) { errors.push('Osoba č. ' + n + ': neplatný čas příchodu „t“.'); return; }
+        if (!Number.isInteger(p.from) || p.from < 0 || p.from >= F) { errors.push('Osoba č. ' + n + ': patro „from“ (' + p.from + ') neexistuje, pater je ' + F + ' (0 až ' + (F - 1) + ').'); return; }
+        if (!Number.isInteger(p.to) || p.to < 0 || p.to >= F) { errors.push('Osoba č. ' + n + ': patro „to“ (' + p.to + ') neexistuje, pater je ' + F + ' (0 až ' + (F - 1) + ').'); return; }
+        if (p.from === p.to) { errors.push('Osoba č. ' + n + ': jede z patra ' + p.from + ' do téhož patra.'); return; }
+        if (p.slow !== undefined && !(isNum(p.slow) && p.slow >= 0.25 && p.slow <= 10)) { errors.push('Osoba č. ' + n + ': „slow“ musí být číslo 0,25 až 10.'); return; }
+        var o = { id: n, t: p.t, from: p.from, to: p.to };
+        if (p.slow !== undefined && p.slow !== 1) o.slow = p.slow;
+        s.people.push(o);
+      });
+      if (!errors.length) {
+        s.people.sort(function (a, b) { return a.t - b.t || a.id - b.id; });
+        s.people.forEach(function (p, i) { p.id = i + 1; });
+      }
+    }
+    if (errors.length) return { ok: false, errors: errors.slice(0, 12).concat(errors.length > 12 ? ['… a dalších ' + (errors.length - 12) + ' chyb.'] : []), warnings: warnings };
+
+    s.computedHash = hashOf(s);
+    if (s.hash && s.hash !== s.computedHash) warnings.push('Otisk zadání v souboru (' + s.hash + ') nesouhlasí s obsahem (' + s.computedHash + '). Soubor byl po vytvoření upraven.');
+    if (s.engineVersion !== ENGINE_VERSION) warnings.push('Zadání bylo vytvořeno pro jinou verzi jádra (' + s.engineVersion + ', tento simulátor má ' + ENGINE_VERSION + '). Výsledky se mohou lišit.');
+    return { ok: true, errors: errors, warnings: warnings, scenario: s };
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  UKÁZKOVÉ ZADÁNÍ
+   * ------------------------------------------------------------------ */
+  var EXAMPLE_SMALL = {
+    format: FORMAT, version: VERSION,
+    name: 'Malé ukázkové zadání',
+    description: 'Šest lidí v pětipatrové budově.',
+    lift: { floors: 5, capacity: 4 },
+    people: [
+      { id: 1, t: 0, from: 0, to: 3 },
+      { id: 2, t: 5, from: 0, to: 2 },
+      { id: 3, t: 12, from: 4, to: 0 },
+      { id: 4, t: 20, from: 2, to: 0, slow: 2 },
+      { id: 5, t: 31.5, from: 1, to: 4 },
+      { id: 6, t: 40, from: 3, to: 1 },
+    ],
+  };
+
+  function makeDemo() {
+    var seed = 20260914;
+    function rnd() { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }
+    var F = 6, people = [], t = 0;
+    for (var i = 0; i < 40; i++) {
+      t += -Math.log(1 - rnd()) * 12;
+      var r = rnd(), from, to;
+      if (r < 0.45) { from = 0; to = 1 + Math.floor(rnd() * (F - 1)); }
+      else if (r < 0.8) { to = 0; from = 1 + Math.floor(rnd() * (F - 1)); }
+      else { from = Math.floor(rnd() * F); do { to = Math.floor(rnd() * F); } while (to === from); }
+      var p = { id: i + 1, t: Math.round(t * 10) / 10, from: from, to: to };
+      if (rnd() < 0.1) p.slow = 2;
+      people.push(p);
+    }
+    var raw = {
+      format: FORMAT, version: VERSION, engineVersion: ENGINE_VERSION,
+      name: 'Ukázkový ranní provoz', description: 'Šest pater, 40 lidí, většina jede z přízemí nebo do přízemí.',
+      lift: { floors: F, capacity: 6, speed: 2, acceleration: 1 },
+      boarding: { in: 1, out: 1 }, info: { destVisible: false }, evaluation: { horizon: 600, maxTime: 7200 },
+      people: people,
+    };
+    var v = validate(raw);
+    raw.hash = v.scenario.computedHash;
+    return raw;
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  JÁDRO SIMULACE (fyzika je pevná a pro všechny stejná)
+   * ------------------------------------------------------------------ */
+  var DT = 0.05, REC = 2, BRAKE_TOL = 0.1, WALL_LIMIT_MS = 20000;
+
+  function sgn(x) { return x > 0 ? 1 : x < 0 ? -1 : 0; }
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+  function studentError(phase, e, custom) {
+    var err = new Error(e && e.message ? e.message : String(e));
+    err.student = true; err.phase = phase; err.errName = e && e.name; err.line = null;
+    if (!custom && e && e.stack) {
+      var m = /:(\d+):\d+/.exec(String(e.stack).split('\n').filter(function (l) { return /:\d+:\d+/.test(l); })[0] || '');
+      if (m) err.line = +m[1];
+    }
+    return err;
+  }
+
+  function run(scn) {
+    var logs = [], clock = { t: 0 };
+    var saved = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+    function add(args) {
+      if (logs.length >= 300) { if (logs.length === 300) logs.push('… (další výpisy už se nezobrazují)'); return; }
+      logs.push('[' + clock.t.toFixed(1) + ' s] ' + Array.prototype.map.call(args, function (a) {
+        if (typeof a === 'string') return a;
+        try { return JSON.stringify(a); } catch (e) { return String(a); }
+      }).join(' '));
+    }
+    console.log = console.warn = console.error = console.info = function () { add(arguments); };
+    try { return runInner(scn, logs, clock); }
+    finally { console.log = saved.log; console.warn = saved.warn; console.error = saved.error; console.info = saved.info; }
+  }
+
+  function runInner(scn, logs, clock) {
+    var L = scn.lift, B = scn.boarding, F = L.floors, H = L.floorHeight, CAP = L.capacity;
+    var VMAX = L.speed, ACC = L.acceleration, destVisible = !!scn.info.destVisible;
+    var maxTime = scn.evaluation.maxTime, horizon = scn.evaluation.horizon;
+
+    if (typeof rozhodni !== 'function') {
+      return { ok: false, error: { phase: 'syntax', message: 'V bloku algoritmus chybí funkce rozhodni(stav).', line: null, time: 0 }, log: logs };
+    }
+    var fnNastup = typeof nastup === 'function' ? nastup : null;
+
+    var P = scn.people.map(function (p) {
+      return { id: p.id, t: p.t, from: p.from, to: p.to, slow: p.slow || 1, dir: sgn(p.to - p.from), tBoard: null, tExit: null, vw: null, vc: null };
+    });
+    var N = P.length, nextArr = 0, delivered = 0;
+    var waiting = [], onboard = [];
+    var y = L.startFloor * H, v = 0, state = 'idle', target = null, stop = null;
+    var dirLast = 1, stops = 0, dist = 0;
+    var fy = [y], fdoor = [0];
+    var tick = 0;
+
+    function doorFrac() {
+      if (!stop) return 0;
+      if (stop.task === 'open') return clamp(1 - stop.timer / L.doorOpen, 0, 1);
+      if (stop.task === 'close') return clamp(stop.timer / L.doorClose, 0, 1);
+      return 1;
+    }
+    function nearestAhead() {
+      var d = sgn(v) || sgn(target * H - y) || 1;
+      var brake = Math.max(0, v * v / (2 * ACC) - BRAKE_TOL);
+      var f = d > 0 ? Math.ceil((y + brake) / H - 1e-6) : Math.floor((y - brake) / H + 1e-6);
+      return clamp(f, 0, F - 1);
+    }
+    function makeStav() {
+      var moving = state === 'moving', patro = clamp(Math.round(y / H), 0, F - 1);
+      return Object.freeze({
+        cas: tick * DT, patro: patro, poloha: y, rychlost: v,
+        smer: moving ? (sgn(v) || sgn(target * H - y)) : 0,
+        posledniSmer: dirLast, stoji: !moving, cil: moving ? target : null,
+        nejblizsiZastaveni: moving ? nearestAhead() : patro,
+        kapacita: CAP, volno: CAP - onboard.length, pocetPater: F, vyskaPatra: H,
+        vKabine: Object.freeze(onboard.map(function (p) { return p.vc; })),
+        cekajici: Object.freeze(waiting.map(function (p) { return p.vw; })),
+      });
+    }
+    function decide() {
+      var r;
+      try { r = rozhodni(makeStav()); } catch (e) { throw studentError('rozhodni', e); }
+      if (r === null || r === undefined) return null;
+      if (typeof r !== 'number' || !Number.isInteger(r) || r < 0 || r >= F) {
+        throw studentError('rozhodni', new Error('Funkce rozhodni() vrátila ' + (typeof r === 'object' ? 'objekt' : String(r)) + ', ale musí vrátit celé číslo patra od 0 do ' + (F - 1) + ' (nebo null).'), true);
+      }
+      return r;
+    }
+    function anythingAt(f) {
+      var i;
+      for (i = 0; i < onboard.length; i++) if (onboard[i].to === f) return true;
+      for (i = 0; i < waiting.length; i++) if (waiting[i].from === f) return true;
+      return false;
+    }
+    function beginStop() { state = 'stop'; stops++; stop = { task: 'open', timer: L.doorOpen, p: null }; v = 0; }
+    function nextTask() {
+      var f = clamp(Math.round(y / H), 0, F - 1), i;
+      for (i = 0; i < onboard.length; i++) if (onboard[i].to === f) { stop.task = 'out'; stop.p = onboard[i]; stop.timer = B.out * onboard[i].slow; return; }
+      if (onboard.length < CAP) {
+        var stav = fnNastup ? makeStav() : null;
+        for (i = 0; i < waiting.length; i++) {
+          var p = waiting[i];
+          if (p.from !== f) continue;
+          var ok = true;
+          if (fnNastup) { try { ok = fnNastup(stav, p.vw); } catch (e) { throw studentError('nastup', e); } }
+          if (ok) { stop.task = 'in'; stop.p = p; stop.timer = B.in * p.slow; return; }
+        }
+      }
+      stop.task = 'close'; stop.p = null; stop.timer = L.doorClose;
+    }
+    function doStop() {
+      stop.timer -= DT;
+      if (stop.timer > 1e-9) return;
+      var p = stop.p, now = tick * DT;
+      if (stop.task === 'out') {
+        onboard.splice(onboard.indexOf(p), 1); p.tExit = now; delivered++;
+      } else if (stop.task === 'in') {
+        waiting.splice(waiting.indexOf(p), 1); p.tBoard = now; onboard.push(p);
+        p.vc = Object.freeze({ id: p.id, odkud: p.from, cil: p.to, od: p.t, nastoupil: now });
+      } else if (stop.task === 'close') {
+        state = 'idle'; stop = null; return;
+      }
+      nextTask();
+    }
+    function move() {
+      var ty = target * H, d = ty - y, ad = Math.abs(d), s = d >= 0 ? 1 : -1;
+      var vd = Math.min(VMAX, Math.sqrt(2 * ACC * ad)) * s;
+      v += clamp(vd - v, -ACC * DT, ACC * DT);
+      if (v !== 0) dirLast = sgn(v);
+      var yn = y + v * DT;
+      if ((ty - yn) * s <= 1e-4 || (ad < 0.03 && Math.abs(v) < 0.3)) {
+        dist += ad; y = ty; v = 0; target = null; beginStop();
+      } else { dist += Math.abs(v * DT); y = yn; }
+    }
+    function step() {
+      tick++;
+      var now = tick * DT;
+      clock.t = now;
+      while (nextArr < N && P[nextArr].t <= now + 1e-9) {
+        var p = P[nextArr++];
+        var vw = { id: p.id, patro: p.from, smer: p.dir, od: p.t };
+        if (destVisible) vw.cil = p.to;
+        p.vw = Object.freeze(vw);
+        waiting.push(p);
+      }
+      if (state === 'idle') {
+        var w = decide();
+        if (w !== null) {
+          var f = clamp(Math.round(y / H), 0, F - 1);
+          if (w === f) { if (anythingAt(f)) beginStop(); }
+          else { target = w; state = 'moving'; }
+        }
+      } else if (state === 'moving') {
+        var w2 = decide();
+        if (w2 !== null) {
+          var d = sgn(v) || sgn(target * H - y) || 1, near = nearestAhead();
+          target = (w2 - near) * d >= 0 ? w2 : near;
+        }
+      }
+      if (state === 'moving') move();
+      else if (state === 'stop') doStop();
+      if (tick % REC === 0) { fy.push(y); fdoor.push(doorFrac()); }
+    }
+
+    var wallStart = Date.now();
+    try {
+      if (typeof zacatek === 'function') { try { zacatek(makeStav()); } catch (e) { throw studentError('zacatek', e); } }
+      while (delivered < N && tick * DT < maxTime) {
+        step();
+        if ((tick & 1023) === 0) {
+          if (Date.now() - wallStart > WALL_LIMIT_MS) throw Object.assign(new Error('Simulace trvá příliš dlouho (více než ' + WALL_LIMIT_MS / 1000 + ' s počítání). Je tvůj algoritmus příliš pomalý?'), { student: true, phase: 'timeout', line: null });
+        }
+      }
+    } catch (e) {
+      if (e.student) return { ok: false, error: { phase: e.phase, message: e.message, line: e.line, time: tick * DT }, log: logs };
+      throw e;
+    }
+    if (tick % REC !== 0) { fy.push(y); fdoor.push(doorFrac()); }
+
+    var sw = 0, sr = 0, st = 0, nb = 0, mw = 0, mt = 0, tAll = 0, inH = 0, i;
+    for (i = 0; i < N; i++) {
+      var q = P[i];
+      if (q.tBoard !== null) { var wt = q.tBoard - q.t; nb++; sw += wt; if (wt > mw) mw = wt; }
+      if (q.tExit !== null) {
+        var tot = q.tExit - q.t; st += tot; sr += q.tExit - q.tBoard;
+        if (tot > mt) mt = tot; if (q.tExit > tAll) tAll = q.tExit; if (q.tExit <= horizon) inH++;
+      }
+    }
+    var finished = delivered === N;
+    return {
+      ok: true, finished: finished, endTime: tick * DT,
+      metrics: {
+        total: N, delivered: delivered, finished: finished,
+        tAll: finished ? tAll : null,
+        avgTotal: delivered ? st / delivered : null, avgWait: nb ? sw / nb : null, avgRide: delivered ? sr / delivered : null,
+        maxWait: mw, maxTotal: mt, stops: stops, dist: dist, servedInHorizon: inH,
+      },
+      persons: P.map(function (q) { return { id: q.id, t: q.t, from: q.from, to: q.to, slow: q.slow, tBoard: q.tBoard, tExit: q.tExit }; }),
+      frames: { dt: DT * REC, y: fy, door: fdoor },
+      log: logs,
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  VYKRESLENÍ
+   * ------------------------------------------------------------------ */
+  var PAL = ['#475569', '#2b6cb0', '#2f9e44', '#c27c0e', '#c53030', '#7c3aed', '#0d9488', '#be185d', '#65a30d', '#ea580c'];
+  var INK = '#2d3748', MUTE = '#718096', ACCENT = '#2b6cb0';
+  var CW = 420;
+
+  function rrect(ctx, x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function tri(ctx, x, y, up, s, col) {
+    ctx.fillStyle = col; ctx.beginPath();
+    if (up) { ctx.moveTo(x, y - s); ctx.lineTo(x + s, y + s * 0.7); ctx.lineTo(x - s, y + s * 0.7); }
+    else { ctx.moveTo(x, y + s); ctx.lineTo(x + s, y - s * 0.7); ctx.lineTo(x - s, y - s * 0.7); }
+    ctx.closePath(); ctx.fill();
+  }
+  function person(ctx, x, yBase, dest, s, waited, slow) {
+    ctx.fillStyle = PAL[dest % PAL.length];
+    rrect(ctx, x - 4 * s, yBase - 12 * s, 8 * s, 12 * s, 2 * s); ctx.fill();
+    var k = Math.min(1, (waited || 0) / 120);
+    ctx.fillStyle = 'rgb(' + Math.round(242 - 20 * k) + ',' + Math.round(201 - 140 * k) + ',' + Math.round(160 - 110 * k) + ')';
+    ctx.beginPath(); ctx.arc(x, yBase - 15.5 * s, 3.6 * s, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = INK; ctx.font = 'bold ' + Math.round(9 * Math.max(s, 0.85)) + 'px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(dest, x, yBase - 21 * s);
+    if (slow && slow > 1) { ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.strokeRect(x - 5 * s, yBase - 12 * s - 1, 10 * s, 2); }
+  }
+  function frameAt(res, t) {
+    var fr = res.frames, n = fr.y.length, i = Math.max(0, t / fr.dt);
+    var i0 = Math.min(n - 1, Math.floor(i)), i1 = Math.min(n - 1, i0 + 1), k = Math.min(1, i - i0);
+    return { y: fr.y[i0] + (fr.y[i1] - fr.y[i0]) * k, door: fr.door[i0] + (fr.door[i1] - fr.door[i0]) * k, moving: Math.abs(fr.y[i1] - fr.y[i0]) > 1e-6, up: fr.y[i1] > fr.y[i0] };
+  }
+
+  function drawLift(c, scn, res, t) {
+    var L = scn.lift, F = L.floors;
+    var fp = Math.max(34, Math.min(88, Math.round(440 / F))), H = 24 + F * fp + 26;
+    var dpr = window.devicePixelRatio || 1, cssW = c.clientWidth || CW;
+    var pw = Math.round(cssW * dpr), ph = Math.round(cssW * H / CW * dpr);
+    if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
+    c.style.aspectRatio = CW + ' / ' + H;
+    var ctx = c.getContext('2d');
+    ctx.setTransform(pw / CW, 0, 0, ph / H, 0, 0);
+    ctx.clearRect(0, 0, CW, H);
+
+    var g0 = H - 26, fy = function (f) { return g0 - f * fp; }, SL = 160, SR = 270, CX = (SL + SR) / 2;
+    var fr = frameAt(res, t);
+
+    ctx.fillStyle = '#e8edf3'; ctx.fillRect(SL, fy(F - 1) - fp + 6, SR - SL, F * fp - 4);
+    ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 3; ctx.strokeRect(SL, fy(F - 1) - fp + 6, SR - SL, F * fp - 4);
+
+    var waiting = [], inside = [], f, i;
+    for (f = 0; f < F; f++) waiting.push([]);
+    for (i = 0; i < res.persons.length; i++) {
+      var p = res.persons[i];
+      if (p.t > t) break;
+      if (p.tBoard === null || t < p.tBoard) waiting[p.from].push(p);
+      else if (p.tExit === null || t < p.tExit) inside.push(p);
+    }
+
+    var maxVis = Math.floor((SL - 34) / 13), s = Math.min(1, (fp - 14) / 24);
+    for (f = 0; f < F; f++) {
+      var y = fy(f), w = waiting[f];
+      ctx.fillStyle = '#718096'; ctx.fillRect(8, y, SL - 8, 3); ctx.fillRect(SR, y, CW - SR - 8, 3);
+      ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.fillText(f === 0 ? 'přízemí' : f + '. patro', SR + 8, y - 6);
+      for (i = 0; i < Math.min(w.length, maxVis); i++) person(ctx, SL - 14 - i * 13, y, w[i].to, s, t - w[i].t, w[i].slow);
+      if (w.length > maxVis) { ctx.fillStyle = INK; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.fillText('+' + (w.length - maxVis), 10, y - 6); }
+      var up = false, dn = false;
+      w.forEach(function (q) { if (q.to > f) up = true; else dn = true; });
+      var bx = SR + 24, by = y - Math.min(24, fp * 0.45);
+      tri(ctx, bx, by - 8, true, 5.5, up ? '#f59e0b' : '#cbd5e0'); tri(ctx, bx, by + 8, false, 5.5, dn ? '#f59e0b' : '#cbd5e0');
+    }
+
+    var cw = 80, ch = fp - 12, cx = CX - cw / 2, cyBot = g0 - fr.y / L.floorHeight * fp - 2, cy = cyBot - ch;
+    ctx.fillStyle = '#f7fafc'; ctx.fillRect(cx, cy, cw, ch);
+    ctx.fillStyle = ACCENT; ctx.fillRect(cx, cy, cw, 14);
+    var n = inside.length, perRow = Math.max(1, Math.ceil(L.capacity / 2)), sc = Math.min(1, (ch - 22) / 26);
+    for (i = 0; i < n; i++) {
+      var row = i < perRow ? 0 : 1, col = row ? i - perRow : i;
+      person(ctx, cx + 11 + col * ((cw - 22) / Math.max(1, perRow - 1)), cyBot - 3, inside[i].to, sc * (row ? 0.82 : 1), 0, inside[i].slow);
+    }
+    var dw = (cw - 6) / 2 * (1 - fr.door);
+    ctx.fillStyle = 'rgba(160,174,192,.45)'; ctx.strokeStyle = '#718096'; ctx.lineWidth = 1.5;
+    if (dw > 0.5) {
+      ctx.fillRect(cx + 3, cy + 16, dw, ch - 18); ctx.strokeRect(cx + 3, cy + 16, dw, ch - 18);
+      ctx.fillRect(cx + cw - 3 - dw, cy + 16, dw, ch - 18); ctx.strokeRect(cx + cw - 3 - dw, cy + 16, dw, ch - 18);
+    }
+    ctx.strokeStyle = ACCENT; ctx.lineWidth = 3; ctx.strokeRect(cx, cy, cw, ch);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(n + ' / ' + L.capacity, CX + 6, cy + 11);
+    if (fr.moving) tri(ctx, cx + 10, cy + 7, fr.up, 4.5, '#fff');
+    if (n >= L.capacity) { ctx.fillStyle = '#c53030'; ctx.fillText('PLNO', CX, cy + ch / 2); }
+    ctx.fillStyle = MUTE; ctx.font = '10px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('číslo nad hlavou = kam jede · červenější hlava = dlouho čeká', 8, H - 6);
+    return { waiting: waiting.reduce(function (a, w) { return a + w.length; }, 0), inside: n };
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  ROZHRANÍ
+   * ------------------------------------------------------------------ */
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmtT(s) { s = Math.max(0, s); return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
+  function f1(x) { return x === null || x === undefined ? '–' : (Math.round(x * 10) / 10).toLocaleString('cs-CZ') + ' s'; }
+
+  var scn = null, res = null, playT = 0, playing = false, lastTs = 0;
+  var STORE = 'vytah-zadani-posledni';
+
+  /* karty */
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
+    b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); });
+  });
+  function showTab(name) {
+    Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
+    $('tab-sim').classList.toggle('on', name === 'sim');
+    $('tab-manual').classList.toggle('on', name === 'manual');
+    if (name === 'sim' && res) draw();
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('[data-goto]');
+    if (a) { e.preventDefault(); var el = document.getElementById(a.getAttribute('data-goto')); if (el) el.scrollIntoView({ behavior: 'smooth' }); }
+  });
+
+  /* manuál: tabulka rozsahů a příklad */
+  (function () {
+    var rows = '<tr><th>Klíč</th><th>Význam</th><th class="num">Výchozí</th><th class="num">Nejméně</th><th class="num">Nejvíce</th><th>Jednotka</th><th>Poznámka</th></tr>';
+    RANGES.forEach(function (r) {
+      var key = r.path.join('.');
+      rows += '<tr><td><code>' + key + '</code></td><td>' + esc(r.label) + '</td><td class="num">' + getPath(DEFAULTS, r.path) +
+        '</td><td class="num">' + (r.exclusiveMin ? '> ' : '') + r.min + '</td><td class="num">' + (isFinite(r.max) ? r.max : '–') + '</td><td>' + esc(r.unit) + '</td><td>' + esc(r.desc + (r.int ? ' Celé číslo.' : '')) + '</td></tr>';
+    });
+    $('rangeTbl').innerHTML = rows;
+    $('exampleJson').textContent = JSON.stringify(EXAMPLE_SMALL, null, 2);
+  })();
+
+  $('dlDemo').addEventListener('click', function () {
+    var blob = new Blob([JSON.stringify(makeDemo(), null, 2)], { type: 'application/json' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'zadani-ukazka.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+
+  /* načítání zadání */
+  function showMsg(kind, items) {
+    $('loadMsg').innerHTML = items.length ? '<div class="msg ' + kind + '"><ul>' + items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>' : '';
+  }
+  function loadText(text, remember) {
+    var raw;
+    try { raw = JSON.parse(text.replace(/^﻿/, '')); }
+    catch (e) { showMsg('err', ['Soubor není platný JSON: ' + e.message]); return; }
+    var v = validate(raw);
+    if (!v.ok) { showMsg('err', v.errors); return; }
+    showMsg('warn', v.warnings);
+    scn = v.scenario;
+    if (remember) { try { localStorage.setItem(STORE, text); } catch (e) { /* bez paměti to půjde taky */ } }
+    var L = scn.lift;
+    $('scnInfo').hidden = false;
+    $('scnInfo').innerHTML = '<b>' + esc(scn.name) + '</b>' + (scn.description ? ' – ' + esc(scn.description) : '') +
+      '<br>' + L.floors + ' pater · kapacita ' + L.capacity + ' · ' + scn.people.length + ' lidí · algoritmus ' +
+      (scn.info.destVisible ? '<b>vidí</b>' : '<b>nevidí</b>') + ' cíl čekajících · otisk zadání <b>' + scn.computedHash + '</b>';
+    simulate();
+  }
+  function loadFile(f) {
+    var r = new FileReader();
+    r.onload = function () { loadText(String(r.result), true); };
+    r.onerror = function () { showMsg('err', ['Soubor se nepodařilo přečíst.']); };
+    r.readAsText(f, 'utf-8');
+  }
+  $('pickBtn').addEventListener('click', function () { $('file').click(); });
+  $('file').addEventListener('change', function () { if (this.files[0]) loadFile(this.files[0]); this.value = ''; });
+  $('pasteBtn').addEventListener('click', function () { $('pasteBox').hidden = !$('pasteBox').hidden; });
+  $('pasteApply').addEventListener('click', function () { loadText($('pasteText').value, true); });
+  $('demoBtn').addEventListener('click', function () { loadText(JSON.stringify(makeDemo()), true); });
+  var drop = $('drop');
+  ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) { e.preventDefault(); });
+
+  /* spuštění simulace a výsledky */
+  function simulate() {
+    playing = false; $('playBtn').textContent = '▶ Spustit';
+    try { res = run(scn); }
+    catch (e) { res = { ok: false, error: { phase: 'intern', message: String(e && e.message || e), line: null, time: 0 }, log: [] }; }
+    $('result').hidden = false;
+    $('log').textContent = res.log.length ? res.log.join('\n') : '(nic)';
+    var msgBox = $('runMsg');
+    msgBox.innerHTML = '';
+
+    if (!res.ok) {
+      var er = res.error, where = { rozhodni: 've funkci rozhodni()', nastup: 've funkci nastup()', zacatek: 've funkci zacatek()', syntax: 'v kódu' }[er.phase] || '';
+      msgBox.innerHTML = '<div class="msg err"><b>Chyba ' + esc(where) + '</b>' + (er.time ? ' (simulovaný čas ' + fmtT(er.time) + ')' : '') + ':<br>' + esc(er.message) +
+        (er.line ? '<br><small>Řádek ' + er.line + ' v souboru vytah.html</small>' : '') + '</div>';
+      $('metrics').innerHTML = ''; $('peopleTbl').innerHTML = '';
+      $('liveInfo').textContent = '';
+      var c = $('cv'); c.getContext('2d').clearRect(0, 0, c.width, c.height);
+      $('scrub').disabled = true; $('playBtn').disabled = true;
+      return;
+    }
+    $('scrub').disabled = false; $('playBtn').disabled = false;
+    var m = res.metrics;
+    if (!res.finished) msgBox.innerHTML = '<div class="msg warn">Simulace skončila po ' + fmtT(res.endTime) + ' (nejdelší doba), ale nedojeli všichni: ' + m.delivered + ' z ' + m.total + '.</div>';
+    $('metrics').innerHTML = [
+      ['Rozvezeno', m.delivered + ' z ' + m.total],
+      ['Hotovo v čase', m.tAll === null ? '–' : fmtT(m.tAll) + ' (' + f1(m.tAll) + ')'],
+      ['Průměrné čekání', f1(m.avgWait)],
+      ['Průměrná jízda', f1(m.avgRide)],
+      ['<b>Průměrně celkem</b>', '<b>' + f1(m.avgTotal) + '</b>'],
+      ['Nejdelší čekání', f1(m.maxWait)],
+      ['Nejdelší celkem', f1(m.maxTotal)],
+      ['Zastavení (otevření dveří)', m.stops],
+      ['Ujetá dráha', (Math.round(m.dist) + ' m')],
+      ['Rozvezeno do ' + scn.evaluation.horizon + ' s', m.servedInHorizon],
+    ].map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>'; }).join('');
+
+    var rows = '<tr><th class="num">#</th><th class="num">Příchod</th><th>Odkud → kam</th><th class="num">Čekal</th><th class="num">Jel</th><th class="num">Celkem</th></tr>';
+    res.persons.forEach(function (p) {
+      var done = p.tExit !== null;
+      rows += '<tr><td class="num">' + p.id + '</td><td class="num">' + f1(p.t) + '</td><td>' + p.from + ' → ' + p.to + (p.slow > 1 ? ' (pomalý ×' + p.slow + ')' : '') + '</td>' +
+        '<td class="num">' + (p.tBoard !== null ? f1(p.tBoard - p.t) : '–') + '</td><td class="num">' + (done ? f1(p.tExit - p.tBoard) : '–') +
+        '</td><td class="num">' + (done ? f1(p.tExit - p.t) : '–') + '</td></tr>';
+    });
+    $('peopleTbl').innerHTML = rows;
+
+    playT = 0; $('scrub').value = 0;
+    draw();
+  }
+
+  function draw() {
+    if (!res || !res.ok) return;
+    var info = drawLift($('cv'), scn, res, playT);
+    $('clock').textContent = fmtT(playT) + ' / ' + fmtT(res.endTime);
+    $('liveInfo').textContent = 'Čeká: ' + info.waiting + ' · v kabině: ' + info.inside;
+    $('scrub').value = res.endTime ? Math.round(playT / res.endTime * 1000) : 0;
+  }
+  function tickAnim(ts) {
+    if (!playing) return;
+    var dt = Math.min(0.1, (ts - lastTs) / 1000); lastTs = ts;
+    playT += dt * (+$('speed').value);
+    if (playT >= res.endTime) { playT = res.endTime; playing = false; $('playBtn').textContent = '▶ Znovu'; }
+    draw();
+    if (playing) requestAnimationFrame(tickAnim);
+  }
+  $('playBtn').addEventListener('click', function () {
+    if (!res || !res.ok) return;
+    if (playing) { playing = false; this.textContent = '▶ Pokračovat'; return; }
+    if (playT >= res.endTime) playT = 0;
+    playing = true; this.textContent = '⏸ Pauza';
+    lastTs = performance.now(); requestAnimationFrame(tickAnim);
+  });
+  $('restartBtn').addEventListener('click', function () { playT = 0; playing = false; $('playBtn').textContent = '▶ Spustit'; draw(); });
+  $('scrub').addEventListener('input', function () { if (!res || !res.ok) return; playT = this.value / 1000 * res.endTime; draw(); });
+  window.addEventListener('resize', draw);
+
+  /* po načtení stránky: poslední zadání z paměti prohlížeče */
+  try {
+    var last = localStorage.getItem(STORE);
+    if (last) loadText(last, false);
+  } catch (e) { /* bez paměti */ }
+})();
+</script>
+</body>
+</html>
